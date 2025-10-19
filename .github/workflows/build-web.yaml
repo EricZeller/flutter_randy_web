@@ -1,0 +1,40 @@
+name: Flutter CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone build repository
+        run: git clone https://github.com/EricZeller/flutter_randy.git flutter_app
+        
+      - name: Clone web repository
+        run: git clone https://github.com/EricZeller/flutter_randy_web.git flutter_web_app
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.6' # deine gewünschte Version
+
+      - name: Get dependencies
+        run: cd flutter_app && flutter pub get
+
+      - name: Build web 
+        run: cd flutter_app && grep '^version:' pubspec.yaml | cut -d ' ' -f2 && flutter build web --release --base-href "/flutter_randy_web/"
+      
+      - name: Push build/web to web repo
+        run: |
+          cp flutter_app/build/web/* flutter_web_app -R
+          cd flutter_web_app
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "v$(grep '^version:' ../flutter_app/pubspec.yaml | awk '{print $2}')"
+          git push https://x-access-token:${{ secrets.REPO_TOKEN }}@github.com/EricZeller/flutter_randy_web.git main
+
